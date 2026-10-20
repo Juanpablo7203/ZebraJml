@@ -1,0 +1,6 @@
+{
+  "name": "DocStock - Terminal Zebra TC27",
+  "description": "Field Inventory & Document Utility with 2D barcode scanner integration for warehouse order verification.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
