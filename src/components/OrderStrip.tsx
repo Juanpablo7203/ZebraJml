@@ -43,6 +43,16 @@ export const OrderStrip: React.FC<OrderStripProps> = ({ order, onOpenOrderSelect
         </button>
 
         <div className="flex items-center gap-space-xs flex-shrink-0">
+          <button
+            type="button"
+            onClick={onOpenOrderSelector}
+            className="px-2.5 py-1 rounded-lg bg-surface-container hover:bg-surface-container-highest text-primary font-label-sm text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+            title="Consultar otro número de pedido en la API"
+          >
+            <span className="material-symbols-outlined text-[16px]">search</span>
+            <span className="hidden xs:inline">Cambiar</span>
+          </button>
+
           <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-tertiary-container text-on-tertiary-container font-label-sm text-label-sm font-semibold">
             <span className="w-1.5 h-1.5 rounded-full bg-tertiary-fixed animate-ping"></span>
             {percentage === 100 ? 'Completada' : 'Auditando'}

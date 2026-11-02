@@ -7,6 +7,7 @@ interface OrderSelectorModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSelectOrder: (orderId: string) => void;
+  onOpenLoadDocument?: () => void;
 }
 
 export const OrderSelectorModal: React.FC<OrderSelectorModalProps> = ({
@@ -15,6 +16,7 @@ export const OrderSelectorModal: React.FC<OrderSelectorModalProps> = ({
   isOpen,
   onClose,
   onSelectOrder,
+  onOpenLoadDocument,
 }) => {
   if (!isOpen) return null;
 
@@ -109,11 +111,25 @@ export const OrderSelectorModal: React.FC<OrderSelectorModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="p-3 bg-surface-container-lowest border-t border-outline-variant/20 flex justify-end">
+        <div className="p-3 bg-surface-container-lowest border-t border-outline-variant/20 flex items-center justify-between gap-2">
+          {onOpenLoadDocument && (
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onOpenLoadDocument();
+              }}
+              className="px-3 py-2 bg-primary text-white hover:bg-secondary rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[16px]">add_circle</span>
+              Consultar por Número
+            </button>
+          )}
+
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 bg-surface-container hover:bg-surface-container-high rounded-lg text-xs font-bold text-on-surface-variant"
+            className="px-4 py-2 bg-surface-container hover:bg-surface-container-high rounded-lg text-xs font-bold text-on-surface-variant cursor-pointer ml-auto"
           >
             Cerrar
           </button>

@@ -176,9 +176,9 @@ export const SincronizarScreen: React.FC<SincronizarScreenProps> = ({
             </span>
           </div>
           <div className="flex items-center justify-between py-1 border-b border-outline-variant/10">
-            <span>Middleware Endpoint:</span>
-            <span className="font-mono text-on-surface font-medium">
-              https://wms-api.docstock.net/v2/scans
+            <span>Servicio Central:</span>
+            <span className="font-semibold text-on-tertiary-container">
+              Conectado (En línea)
             </span>
           </div>
           <div className="flex items-center justify-between py-1 border-b border-outline-variant/10">

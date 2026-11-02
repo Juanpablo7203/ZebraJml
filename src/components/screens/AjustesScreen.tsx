@@ -40,6 +40,7 @@ export const AjustesScreen: React.FC<AjustesScreenProps> = ({
         </p>
       </div>
 
+
       {/* 1. Audio & Haptic Feedback */}
       <div className="bg-surface-container-lowest rounded-xl p-4 border border-outline-variant/30 shadow-xs flex flex-col gap-3">
         <div className="flex items-center justify-between">

@@ -88,7 +88,7 @@ export const ItemsChecklist: React.FC<ItemsChecklistProps> = ({
                   )}
 
                   <div className="flex flex-col min-w-0">
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <span
                         className={`font-data-mono text-label-md font-bold truncate ${
                           isSelected ? 'text-primary' : 'text-on-surface'
@@ -101,6 +101,9 @@ export const ItemsChecklist: React.FC<ItemsChecklistProps> = ({
                           Activo
                         </span>
                       )}
+                      <span className="font-mono text-[10px] text-outline">
+                        · Barra: {item.barcode}
+                      </span>
                     </div>
                     <span className="font-body-sm text-body-sm text-on-surface-variant truncate">
                       {item.description}

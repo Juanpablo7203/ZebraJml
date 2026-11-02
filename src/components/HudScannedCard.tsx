@@ -65,16 +65,20 @@ export const HudScannedCard: React.FC<HudScannedCardProps> = ({
               Ubicación: <strong className="text-on-surface">{item.location}</strong>
             </span>
           </div>
-          <p className="font-body-md text-body-md text-on-surface-variant line-clamp-1">
+          <div className="flex items-center gap-1.5 text-xs text-on-surface-variant font-mono">
+            <span className="text-[11px] text-outline">Código de Barra:</span>
+            <strong className="text-on-surface font-semibold">{item.barcode}</strong>
+          </div>
+          <p className="font-body-md text-body-md text-on-surface-variant line-clamp-1 mt-0.5">
             {item.description}
           </p>
         </div>
 
         {/* Inventory Comparison Metrics */}
         <div className="grid grid-cols-3 gap-space-xs bg-surface-container-low p-space-sm rounded-lg border border-outline-variant/20">
-          {/* Esperado */}
+          {/* A Validar (salcandesp) */}
           <div className="flex flex-col">
-            <span className="font-label-sm text-label-sm text-on-surface-variant">Esperado</span>
+            <span className="font-label-sm text-label-sm text-on-surface-variant">A Validar</span>
             <span className="font-data-mono text-body-lg font-bold text-on-surface text-base sm:text-lg">
               {item.expectedQty} uds
             </span>
