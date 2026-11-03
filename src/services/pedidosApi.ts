@@ -172,8 +172,8 @@ export async function authenticateApi(forceRefresh = false): Promise<string> {
 
 /**
  * Fetches pedido details by document number.
- * Endpoint: /api/pedido/:documento/001
- * Where 001 is the mandatory fixed branch indicator.
+ * Endpoint: /api/pedido/:documento/002
+ * Where 002 is the mandatory fixed branch indicator.
  */
 export async function fetchPedido(documento: string | number): Promise<OrderDoc> {
   // Ensure document number is valid numeric string or integer
@@ -184,8 +184,8 @@ export async function fetchPedido(documento: string | number): Promise<OrderDoc>
 
   const token = await authenticateApi();
   const endpoints = [
-    `/api/remote/pedido/${cleanDoc}/001`,
-    `https://api-jml-production.up.railway.app/api/pedido/${cleanDoc}/001`,
+    `/api/remote/pedido/${cleanDoc}/002`,
+    `https://api-jml-production.up.railway.app/api/pedido/${cleanDoc}/002`,
   ];
 
   let lastError: Error | null = null;
@@ -277,7 +277,7 @@ function parsePedidoResponse(documento: string, apiRes: PedidoApiResponse): Orde
       symbology: cleanBarcode.length >= 12 ? 'EAN-128' : 'Code 128',
       status: qty === 0 ? 'ok' : 'pending',
       barcode: cleanBarcode,
-      notes: `Línea ${row.ordendet || index + 1} • Sucursal ${row.codigosuc || '001'}${row.cantidad !== undefined ? ` • Cant. original: ${row.cantidad}` : ''}`,
+      notes: `Línea ${row.ordendet || index + 1} • Sucursal ${row.codigosuc || '002'}${row.cantidad !== undefined ? ` • Cant. original: ${row.cantidad}` : ''}`,
     };
   });
 
@@ -287,7 +287,7 @@ function parsePedidoResponse(documento: string, apiRes: PedidoApiResponse): Orde
 
   return {
     id: `PED-${documento}`,
-    name: `Pedido #${documento} (Suc. 001)`,
+    name: `Pedido #${documento} (Suc. 002)`,
     type: 'Auditoría de Despacho',
     warehouse: 'Bodega Central - Andén 1',
     bay: 'Bahía 01',
