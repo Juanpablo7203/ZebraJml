@@ -14,21 +14,35 @@ export const DialpadModal: React.FC<DialpadModalProps> = ({
   onClose,
   onSaveCount,
 }) => {
-  const [valueStr, setValueStr] = useState<string>(item.countedQty.toString());
+  const maxAllowed = item.expectedQty;
+  const [valueStr, setValueStr] = useState<string>(
+    Math.min(maxAllowed, item.countedQty).toString()
+  );
+  const [warningMsg, setWarningMsg] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
+  const currentVal = parseInt(valueStr, 10) || 0;
+
   const handleDigit = (digit: string) => {
-    if (valueStr === '0') {
-      setValueStr(digit);
-    } else {
-      if (valueStr.length < 6) {
-        setValueStr(valueStr + digit);
-      }
+    setWarningMsg(null);
+    const candidateStr = valueStr === '0' ? digit : valueStr + digit;
+    const candidateNum = parseInt(candidateStr, 10);
+
+    if (candidateNum > maxAllowed) {
+      // Strictly prevent entering more than document has!
+      setValueStr(maxAllowed.toString());
+      setWarningMsg(`Límite máximo: ${maxAllowed} uds (según documento). No se permite sobreconteo.`);
+      return;
+    }
+
+    if (candidateStr.length <= 6) {
+      setValueStr(candidateStr);
     }
   };
 
   const handleBackspace = () => {
+    setWarningMsg(null);
     if (valueStr.length <= 1) {
       setValueStr('0');
     } else {
@@ -37,17 +51,31 @@ export const DialpadModal: React.FC<DialpadModalProps> = ({
   };
 
   const handleClear = () => {
+    setWarningMsg(null);
     setValueStr('0');
   };
 
   const handleQuickAdd = (amount: number) => {
+    setWarningMsg(null);
     const current = parseInt(valueStr, 10) || 0;
-    setValueStr((current + amount).toString());
+    const nextVal = current + amount;
+    if (nextVal > maxAllowed) {
+      setValueStr(maxAllowed.toString());
+      setWarningMsg(`Ajustado al máximo del documento (${maxAllowed} uds).`);
+    } else {
+      setValueStr(nextVal.toString());
+    }
+  };
+
+  const handleSetMax = () => {
+    setWarningMsg(null);
+    setValueStr(maxAllowed.toString());
   };
 
   const handleConfirm = () => {
     const parsed = parseInt(valueStr, 10) || 0;
-    onSaveCount(parsed);
+    const finalCount = Math.max(0, Math.min(maxAllowed, parsed));
+    onSaveCount(finalCount);
     onClose();
   };
 
@@ -57,8 +85,8 @@ export const DialpadModal: React.FC<DialpadModalProps> = ({
         {/* Header */}
         <div className="p-4 bg-surface-container-high border-b border-outline-variant/30 flex items-center justify-between">
           <div className="flex flex-col">
-            <span className="font-label-sm text-secondary uppercase font-bold tracking-wider">
-              Ajuste Manual de Cantidad
+            <span className="font-label-sm text-secondary uppercase font-bold tracking-wider text-[11px]">
+              Digitar Cantidad Manualmente
             </span>
             <span className="font-data-mono font-bold text-primary text-base">
               {item.sku}
@@ -71,7 +99,7 @@ export const DialpadModal: React.FC<DialpadModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-surface-container text-on-surface-variant hover:text-primary flex items-center justify-center transition-colors"
+            className="w-8 h-8 rounded-full bg-surface-container text-on-surface-variant hover:text-primary flex items-center justify-center transition-colors cursor-pointer"
           >
             <span className="material-symbols-outlined text-[20px]">close</span>
           </button>
@@ -84,58 +112,73 @@ export const DialpadModal: React.FC<DialpadModalProps> = ({
               {valueStr}
             </span>
             <span className="font-label-sm text-on-surface-variant text-sm font-semibold">
-              uds
+              / {maxAllowed} uds
             </span>
           </div>
 
-          <div className="flex items-center gap-3 text-xs mt-1 text-on-surface-variant">
-            <span>Esperado: <strong className="text-on-surface">{item.expectedQty} uds</strong></span>
+          <div className="flex items-center gap-2 text-xs mt-1 text-on-surface-variant">
+            <span>En Pedido: <strong className="text-on-surface">{maxAllowed} uds</strong></span>
             <span>·</span>
             <span>
-              Diferencia:{' '}
+              Faltan:{' '}
               <strong
                 className={
-                  parseInt(valueStr, 10) === item.expectedQty
-                    ? 'text-on-tertiary-container'
-                    : parseInt(valueStr, 10) > item.expectedQty
-                    ? 'text-secondary'
-                    : 'text-error'
+                  currentVal === maxAllowed
+                    ? 'text-emerald-600 font-bold'
+                    : 'text-amber-600 font-bold'
                 }
               >
-                {parseInt(valueStr, 10) - item.expectedQty} uds
+                {Math.max(0, maxAllowed - currentVal)} uds
               </strong>
             </span>
           </div>
 
-          {/* Quick Increment Chips */}
-          <div className="flex items-center gap-1.5 mt-3">
+          {/* Warning Message if user attempted to exceed */}
+          {warningMsg && (
+            <div className="mt-2 py-1 px-2.5 bg-red-50 border border-red-200 rounded-lg text-[11px] text-error font-semibold text-center flex items-center gap-1 animate-fade-in">
+              <span className="material-symbols-outlined text-[14px]">warning</span>
+              <span>{warningMsg}</span>
+            </div>
+          )}
+
+          {/* Quick Increment Chips (Capped at maxAllowed) */}
+          <div className="flex items-center gap-1.5 mt-3 flex-wrap justify-center">
+            {maxAllowed >= 5 && (
+              <button
+                type="button"
+                onClick={() => handleQuickAdd(1)}
+                disabled={currentVal >= maxAllowed}
+                className="px-2.5 py-1 bg-surface-container hover:bg-surface-container-high rounded text-xs font-semibold text-primary transition-colors cursor-pointer disabled:opacity-40"
+              >
+                +1
+              </button>
+            )}
+            {maxAllowed >= 10 && (
+              <button
+                type="button"
+                onClick={() => handleQuickAdd(5)}
+                disabled={currentVal >= maxAllowed}
+                className="px-2.5 py-1 bg-surface-container hover:bg-surface-container-high rounded text-xs font-semibold text-primary transition-colors cursor-pointer disabled:opacity-40"
+              >
+                +5
+              </button>
+            )}
+            {maxAllowed >= 20 && (
+              <button
+                type="button"
+                onClick={() => handleQuickAdd(10)}
+                disabled={currentVal >= maxAllowed}
+                className="px-2.5 py-1 bg-surface-container hover:bg-surface-container-high rounded text-xs font-semibold text-primary transition-colors cursor-pointer disabled:opacity-40"
+              >
+                +10
+              </button>
+            )}
             <button
               type="button"
-              onClick={() => handleQuickAdd(5)}
-              className="px-2 py-1 bg-surface-container hover:bg-surface-container-high rounded text-xs font-semibold text-primary transition-colors cursor-pointer"
+              onClick={handleSetMax}
+              className="px-2.5 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded text-xs font-semibold transition-colors cursor-pointer"
             >
-              +5
-            </button>
-            <button
-              type="button"
-              onClick={() => handleQuickAdd(25)}
-              className="px-2 py-1 bg-surface-container hover:bg-surface-container-high rounded text-xs font-semibold text-primary transition-colors cursor-pointer"
-            >
-              +25
-            </button>
-            <button
-              type="button"
-              onClick={() => handleQuickAdd(100)}
-              className="px-2 py-1 bg-surface-container hover:bg-surface-container-high rounded text-xs font-semibold text-primary transition-colors cursor-pointer"
-            >
-              +100
-            </button>
-            <button
-              type="button"
-              onClick={() => setValueStr(item.expectedQty.toString())}
-              className="px-2 py-1 bg-tertiary-container hover:bg-tertiary-fixed text-on-tertiary-container rounded text-xs font-semibold transition-colors cursor-pointer"
-            >
-              = Esperado ({item.expectedQty})
+              = Total ({maxAllowed})
             </button>
           </div>
         </div>
@@ -177,6 +220,11 @@ export const DialpadModal: React.FC<DialpadModalProps> = ({
           >
             <span className="material-symbols-outlined text-[20px]">backspace</span>
           </button>
+        </div>
+
+        {/* Note on limit */}
+        <div className="px-4 py-1 text-[11px] text-center text-on-surface-variant font-medium bg-surface-container-lowest">
+          Máximo permitido: <strong>{maxAllowed} uds</strong> (según pedido)
         </div>
 
         {/* Footer Actions */}

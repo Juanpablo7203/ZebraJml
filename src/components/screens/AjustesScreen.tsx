@@ -1,7 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ScannerSettings } from '../../types';
 import { playZebraBeep, triggerZebraHaptic } from '../../utils/audioFeedback';
-
 interface AjustesScreenProps {
   settings: ScannerSettings;
   onUpdateSettings: (newSettings: Partial<ScannerSettings>) => void;
@@ -11,6 +10,7 @@ export const AjustesScreen: React.FC<AjustesScreenProps> = ({
   settings,
   onUpdateSettings,
 }) => {
+
   const testBeep = () => {
     playZebraBeep('success', true, settings.bipVolume, settings.bipFrequency);
     triggerZebraHaptic('success', settings.hapticEnabled);
@@ -212,7 +212,8 @@ export const AjustesScreen: React.FC<AjustesScreenProps> = ({
         <div className="grid grid-cols-2 gap-2 text-xs">
           {Object.entries(settings.symbologies).map(([key, isEnabled]) => {
             const spanishNames: Record<string, string> = {
-              ean128: 'EAN-128',
+              ean13: 'EAN-13 (Retail / Bodega)',
+              ean128: 'EAN-128 / GS1-128',
               code128: 'Código 128',
               qrCode: 'Código QR',
               dataMatrix: 'Data Matrix',

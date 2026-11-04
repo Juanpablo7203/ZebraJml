@@ -1,29 +1,33 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 interface HandheldUtilitiesProps {
   bipEnabled: boolean;
   onToggleBip: () => void;
-  onOpenDamagedCode: () => void;
+  onCancelAndClearOrder: () => void;
+  orderName?: string;
 }
 
 export const HandheldUtilities: React.FC<HandheldUtilitiesProps> = ({
   bipEnabled,
   onToggleBip,
-  onOpenDamagedCode,
+  onCancelAndClearOrder,
+  orderName,
 }) => {
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+
   return (
     <div className="px-gutter flex flex-col gap-space-xs max-w-5xl mx-auto w-full">
       <div className="mt-space-sm grid grid-cols-2 gap-space-xs pb-space-lg">
-        {/* Manual Code Entry for Damaged Labels */}
+        {/* Cancel & Clear Order Button */}
         <button
           type="button"
-          onClick={onOpenDamagedCode}
-          className="flex items-center justify-center gap-space-xs py-2.5 px-3 rounded-lg bg-surface-container-lowest hover:bg-surface-container-low text-on-surface shadow-xs active:bg-surface-container transition-colors border border-outline-variant/30 cursor-pointer min-h-[44px]"
-          title="Ingresar código manual en caso de etiqueta dañada o ilegible"
+          onClick={() => setIsConfirmOpen(true)}
+          className="flex items-center justify-center gap-space-xs py-2.5 px-3 rounded-lg bg-red-50 hover:bg-red-100 text-error shadow-xs active:bg-red-200 transition-colors border border-red-200 cursor-pointer min-h-[44px]"
+          title="Cancelar pedido actual y limpiar pantalla para ingresar otro pedido"
         >
-          <span className="material-symbols-outlined text-[18px] text-primary">keyboard</span>
-          <span className="font-label-md text-label-md font-semibold truncate">
-            Código Dañado
+          <span className="material-symbols-outlined text-[18px] text-error">delete_sweep</span>
+          <span className="font-label-md text-label-md font-bold truncate">
+            Cancelar / Limpiar
           </span>
         </button>
 
@@ -60,6 +64,52 @@ export const HandheldUtilities: React.FC<HandheldUtilitiesProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Confirmation Modal */}
+      {isConfirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fade-in">
+          <div className="bg-surface-container-lowest w-full max-w-sm rounded-2xl shadow-2xl border border-outline-variant/30 overflow-hidden flex flex-col">
+            <div className="p-4 bg-red-50 border-b border-red-200 flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-error text-white flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-[22px]">warning</span>
+              </div>
+              <div>
+                <h3 className="font-headline-sm font-bold text-error text-sm">
+                  ¿Cancelar y limpiar pedido?
+                </h3>
+                <p className="text-[11px] text-on-surface-variant">
+                  {orderName || 'Documento actual en curso'}
+                </p>
+              </div>
+            </div>
+
+            <div className="p-4 text-xs text-on-surface leading-relaxed">
+              Se descartarán las lecturas no sincronizadas de este documento y se limpiará la pantalla para que puedas consultar e ingresar otro pedido.
+            </div>
+
+            <div className="p-3 bg-surface-container-low border-t border-outline-variant/20 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setIsConfirmOpen(false)}
+                className="py-2.5 px-3 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface-variant font-label-md font-semibold text-xs cursor-pointer transition-colors"
+              >
+                Volver
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsConfirmOpen(false);
+                  onCancelAndClearOrder();
+                }}
+                className="py-2.5 px-3 rounded-xl bg-error hover:bg-red-700 text-white font-label-md font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition-colors"
+              >
+                <span className="material-symbols-outlined text-[16px]">delete_sweep</span>
+                Sí, Limpiar Pedido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

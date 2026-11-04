@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a192f"/>
+      <stop offset="50%" stop-color="#0f2b48"/>
+      <stop offset="100%" stop-color="#021526"/>
+    </linearGradient>
+    <linearGradient id="laserGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ef4444" stop-opacity="0"/>
+      <stop offset="25%" stop-color="#ef4444" stop-opacity="0.8"/>
+      <stop offset="50%" stop-color="#ffedd5"/>
+      <stop offset="75%" stop-color="#ef4444" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#ef4444" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="glowGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0ea5e9" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#0ea5e9" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background Base -->
+  <rect width="512" height="512" rx="100" fill="url(#bgGrad)"/>
+  
+  <!-- Subtle Industrial Corner Grid Accent -->
+  <path d="M 120 160 L 120 120 L 160 120" stroke="#00b4d8" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M 392 160 L 392 120 L 352 120" stroke="#00b4d8" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M 120 352 L 120 392 L 160 392" stroke="#00b4d8" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M 392 352 L 392 392 L 352 392" stroke="#00b4d8" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+  <!-- Barcode Bars (Safe zone centered) -->
+  <g fill="#ffffff">
+    <!-- Barcode 1D / 2D Hybrid Pattern -->
+    <rect x="156" y="168" width="16" height="176" rx="4"/>
+    <rect x="188" y="168" width="10" height="176" rx="3"/>
+    <rect x="210" y="168" width="22" height="176" rx="4"/>
+    <rect x="244" y="168" width="8"  height="176" rx="2"/>
+    <rect x="264" y="168" width="14" height="176" rx="3"/>
+    <rect x="290" y="168" width="26" height="176" rx="5"/>
+    <rect x="328" y="168" width="10" height="176" rx="3"/>
+    <rect x="348" y="168" width="18" height="176" rx="4"/>
+  </g>
+
+  <!-- Scan Target Reticle Glow -->
+  <rect x="136" y="246" width="240" height="20" fill="url(#laserGrad)"/>
+  <!-- Bright laser core line -->
+  <line x1="120" y1="256" x2="392" y2="256" stroke="#ff3b30" stroke-width="4" stroke-linecap="round"/>
+  <!-- Aiming Center Dot -->
+  <circle cx="256" cy="256" r="6" fill="#ff3b30"/>
+  <circle cx="256" cy="256" r="3" fill="#ffffff"/>
+
+  <!-- Status Indicator Dot (Zebra HW Online Green) -->
+  <circle cx="376" cy="136" r="10" fill="#22c55e"/>
+  <circle cx="376" cy="136" r="5" fill="#86efac"/>
+
+  <!-- Brand Label Badge below barcode -->
+  <rect x="180" y="362" width="152" height="30" rx="8" fill="#1e3a8a"/>
+  <text x="256" y="383" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="bold" fill="#38bdf8" text-anchor="middle" letter-spacing="2">DOCSTOCK</text>
+</svg>

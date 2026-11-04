@@ -22,6 +22,8 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
   useEffect(() => {
     let currentStream: MediaStream | null = null;
 
+    let scanTimer: any = null;
+
     if (isOpen) {
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         navigator.mediaDevices
@@ -40,6 +42,32 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
             }
             setStreamActive(true);
             setCameraError(null);
+
+            // Native BarcodeDetector (EAN-13, EAN-8, UPC-A, Code 128, QR)
+            if ('BarcodeDetector' in window) {
+              try {
+                const detector = new (window as any).BarcodeDetector({
+                  formats: ['ean_13', 'ean_8', 'upc_a', 'code_128', 'code_39', 'qr_code'],
+                });
+                scanTimer = setInterval(async () => {
+                  if (!videoRef.current || videoRef.current.readyState < 2) return;
+                  try {
+                    const detected = await detector.detect(videoRef.current);
+                    if (detected && detected.length > 0) {
+                      const raw = detected[0].rawValue;
+                      if (raw) {
+                        onBarcodeDecoded(raw, raw);
+                        onClose();
+                      }
+                    }
+                  } catch {
+                    // Frame drop ignore
+                  }
+                }, 200);
+              } catch (e) {
+                console.warn('BarcodeDetector error:', e);
+              }
+            }
           })
           .catch((err) => {
             console.warn('Camera stream error or permission declined:', err);
@@ -54,11 +82,12 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
     }
 
     return () => {
+      if (scanTimer) clearInterval(scanTimer);
       if (currentStream) {
         currentStream.getTracks().forEach((track) => track.stop());
       }
     };
-  }, [isOpen]);
+  }, [isOpen, onBarcodeDecoded, onClose]);
 
   if (!isOpen) return null;
 

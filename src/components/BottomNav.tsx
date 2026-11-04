@@ -1,6 +1,6 @@
 import React from 'react';
 
-export type NavTab = 'consultar' | 'historial' | 'sincronizar' | 'ajustes';
+export type NavTab = 'consultar' | 'dashboard' | 'historial' | 'sincronizar' | 'ajustes';
 
 interface BottomNavProps {
   activeTab: NavTab;
@@ -34,7 +34,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         className="fixed bottom-0 w-full z-50 pb-safe bg-surface/90 backdrop-blur-xl shadow-[0_-2px_10px_rgba(0,0,0,0.03)] border-t border-outline-variant/30"
         data-active-classes="text-primary font-bold"
       >
-        <div className="grid grid-cols-4 items-center h-16 px-space-xs max-w-5xl mx-auto">
+        <div className="grid grid-cols-5 items-center h-16 px-space-xs max-w-5xl mx-auto">
           {/* 1. Consultar */}
           <button
             type="button"
@@ -47,19 +47,43 @@ export const BottomNav: React.FC<BottomNavProps> = ({
             data-path="consultar"
           >
             <span
-              className={`material-symbols-outlined text-[22px] ${
+              className={`material-symbols-outlined text-[21px] ${
                 activeTab === 'consultar' ? 'scale-110 text-primary' : ''
               }`}
             >
               search
             </span>
-            <span className="font-label-sm text-label-sm tracking-tight">Consultar</span>
+            <span className="font-label-sm text-[11px] tracking-tight">Consultar</span>
             {activeTab === 'consultar' && (
               <span className="w-1.5 h-1.5 rounded-full bg-primary mt-0.5"></span>
             )}
           </button>
 
-          {/* 2. Historial */}
+          {/* 2. Dashboard */}
+          <button
+            type="button"
+            onClick={() => onSelectTab('dashboard')}
+            className={`flex flex-col items-center justify-center min-h-[44px] h-full transition-colors cursor-pointer ${
+              activeTab === 'dashboard'
+                ? 'text-primary font-bold'
+                : 'text-on-surface-variant hover:text-primary font-medium'
+            }`}
+            data-path="dashboard"
+          >
+            <span
+              className={`material-symbols-outlined text-[21px] ${
+                activeTab === 'dashboard' ? 'scale-110 text-primary' : ''
+              }`}
+            >
+              analytics
+            </span>
+            <span className="font-label-sm text-[11px] tracking-tight">Dashboard</span>
+            {activeTab === 'dashboard' && (
+              <span className="w-1.5 h-1.5 rounded-full bg-primary mt-0.5"></span>
+            )}
+          </button>
+
+          {/* 3. Historial */}
           <button
             type="button"
             onClick={() => onSelectTab('historial')}
@@ -71,19 +95,19 @@ export const BottomNav: React.FC<BottomNavProps> = ({
             data-path="historial"
           >
             <span
-              className={`material-symbols-outlined text-[22px] ${
+              className={`material-symbols-outlined text-[21px] ${
                 activeTab === 'historial' ? 'scale-110 text-primary' : ''
               }`}
             >
               history
             </span>
-            <span className="font-label-sm text-label-sm tracking-tight">Historial</span>
+            <span className="font-label-sm text-[11px] tracking-tight">Historial</span>
             {activeTab === 'historial' && (
               <span className="w-1.5 h-1.5 rounded-full bg-primary mt-0.5"></span>
             )}
           </button>
 
-          {/* 3. Sincronizar */}
+          {/* 4. Sincronizar */}
           <button
             type="button"
             onClick={() => onSelectTab('sincronizar')}
@@ -95,19 +119,19 @@ export const BottomNav: React.FC<BottomNavProps> = ({
             data-path="sincronizar"
           >
             <span
-              className={`material-symbols-outlined text-[22px] ${
+              className={`material-symbols-outlined text-[21px] ${
                 activeTab === 'sincronizar' ? 'scale-110 text-primary' : ''
               }`}
             >
               sync
             </span>
-            <span className="font-label-sm text-label-sm tracking-tight">Sincronizar</span>
+            <span className="font-label-sm text-[11px] tracking-tight">Sincronizar</span>
             {activeTab === 'sincronizar' && (
               <span className="w-1.5 h-1.5 rounded-full bg-primary mt-0.5"></span>
             )}
           </button>
 
-          {/* 4. Ajustes */}
+          {/* 5. Ajustes */}
           <button
             type="button"
             onClick={() => onSelectTab('ajustes')}
@@ -119,13 +143,13 @@ export const BottomNav: React.FC<BottomNavProps> = ({
             data-path="ajustes"
           >
             <span
-              className={`material-symbols-outlined text-[22px] ${
+              className={`material-symbols-outlined text-[21px] ${
                 activeTab === 'ajustes' ? 'scale-110 text-primary' : ''
               }`}
             >
               settings
             </span>
-            <span className="font-label-sm text-label-sm tracking-tight">Ajustes</span>
+            <span className="font-label-sm text-[11px] tracking-tight">Ajustes</span>
             {activeTab === 'ajustes' && (
               <span className="w-1.5 h-1.5 rounded-full bg-primary mt-0.5"></span>
             )}

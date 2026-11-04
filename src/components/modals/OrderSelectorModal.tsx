@@ -48,7 +48,31 @@ export const OrderSelectorModal: React.FC<OrderSelectorModalProps> = ({
 
         {/* Order List */}
         <div className="p-3 overflow-y-auto flex flex-col gap-2.5">
-          {orders.map((order) => {
+          {orders.length === 0 ? (
+            <div className="p-6 text-center flex flex-col items-center justify-center gap-2 bg-surface-container-low rounded-xl border border-dashed border-outline-variant/40">
+              <span className="material-symbols-outlined text-[32px] text-on-surface-variant">
+                folder_off
+              </span>
+              <p className="font-semibold text-sm text-on-surface">No hay pedidos cargados</p>
+              <p className="text-xs text-on-surface-variant">
+                Consulta un pedido en vivo desde la API para auditarlo en esta terminal Zebra.
+              </p>
+              {onOpenLoadDocument && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onOpenLoadDocument();
+                  }}
+                  className="mt-2 px-4 py-2 bg-primary hover:bg-secondary text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[16px]">cloud_download</span>
+                  Consultar Pedido en Servidor
+                </button>
+              )}
+            </div>
+          ) : (
+            orders.map((order) => {
             const isSelected = order.id === activeOrderId;
             const completed = order.items.filter((i) => i.countedQty >= i.expectedQty).length;
             const total = order.items.length;
@@ -107,7 +131,8 @@ export const OrderSelectorModal: React.FC<OrderSelectorModalProps> = ({
                 </div>
               </button>
             );
-          })}
+          })
+        )}
         </div>
 
         {/* Footer */}

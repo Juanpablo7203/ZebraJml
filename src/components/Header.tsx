@@ -1,4 +1,5 @@
 import React from 'react';
+import { PWAInstallButton } from './pwa/PWAInstallButton';
 
 interface HeaderProps {
   onOpenNotifications: () => void;
@@ -62,6 +63,9 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Right: Actions */}
         <div className="flex items-center gap-space-sm flex-shrink-0">
+          {/* PWA Install Button */}
+          <PWAInstallButton variant="header" />
+
           {/* Quick Battery pill for rugged handheld context */}
           <div className="hidden xs:flex items-center gap-1 text-[11px] font-mono font-medium text-on-surface-variant bg-surface-container-low px-2 py-1 rounded-md border border-outline-variant/30">
             <span className="material-symbols-outlined text-[14px] text-tertiary">

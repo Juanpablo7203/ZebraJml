@@ -33,7 +33,7 @@ export interface ScanLog {
   quantityDelta: number;
   totalCounted: number;
   expectedQty: number;
-  method: 'hardware_trigger' | 'soft_trigger' | 'camera' | 'dialpad';
+  method: 'hardware_trigger' | 'soft_trigger' | 'camera' | 'dialpad' | 'manual';
   status: 'success' | 'warning' | 'error';
 }
 
@@ -48,6 +48,7 @@ export interface ScannerSettings {
   datawedgeProfile: string;
   intentOutput: boolean;
   symbologies: {
+    ean13: boolean;
     ean128: boolean;
     code128: boolean;
     qrCode: boolean;

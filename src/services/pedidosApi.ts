@@ -171,6 +171,39 @@ export async function authenticateApi(forceRefresh = false): Promise<string> {
 }
 
 /**
+ * Local offline cache key for pedidos
+ */
+const OFFLINE_CACHE_KEY = 'docstock_offline_pedidos_v1';
+
+export function getCachedOrder(documento: string | number): OrderDoc | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(OFFLINE_CACHE_KEY);
+    if (!raw) return null;
+    const cache = JSON.parse(raw);
+    const cleanDoc = String(documento).trim().replace(/\D/g, '');
+    return cache[cleanDoc] || null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveCachedOrder(documento: string | number, order: OrderDoc): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const cleanDoc = String(documento).trim().replace(/\D/g, '');
+    const raw = localStorage.getItem(OFFLINE_CACHE_KEY);
+    const cache = raw ? JSON.parse(raw) : {};
+    cache[cleanDoc] = order;
+    localStorage.setItem(OFFLINE_CACHE_KEY, JSON.stringify(cache));
+  } catch {
+    // Ignore storage quota errors
+  }
+}
+
+
+
+/**
  * Fetches pedido details by document number.
  * Endpoint: /api/pedido/:documento/002
  * Where 002 is the mandatory fixed branch indicator.
@@ -182,7 +215,17 @@ export async function fetchPedido(documento: string | number): Promise<OrderDoc>
     throw new Error('El número de documento debe ser un valor numérico (Ej: 1, 20, 100)');
   }
 
-  const token = await authenticateApi();
+  let token: string;
+  try {
+    token = await authenticateApi();
+  } catch (authErr) {
+    console.warn('API Auth failed:', authErr);
+    throw new Error(
+      'Error al autenticar con el servidor de pedidos (Failed to fetch). ' +
+      'Esto ocurre comúnmente por bloqueo de CORS en Railway o falta de conexión en la Zebra.'
+    );
+  }
+
   const endpoints = [
     `/api/remote/pedido/${cleanDoc}/002`,
     `https://api-jml-production.up.railway.app/api/pedido/${cleanDoc}/002`,
@@ -214,7 +257,9 @@ export async function fetchPedido(documento: string | number): Promise<OrderDoc>
           throw new Error(`Error HTTP ${retryRes.status} al consultar pedido`);
         }
         const dataRetry: PedidoApiResponse = await retryRes.json();
-        return parsePedidoResponse(cleanDoc, dataRetry);
+        const parsed = parsePedidoResponse(cleanDoc, dataRetry);
+        saveCachedOrder(cleanDoc, parsed);
+        return parsed;
       }
 
       if (!response.ok) {
@@ -222,13 +267,111 @@ export async function fetchPedido(documento: string | number): Promise<OrderDoc>
       }
 
       const data: PedidoApiResponse = await response.json();
-      return parsePedidoResponse(cleanDoc, data);
+      const parsed = parsePedidoResponse(cleanDoc, data);
+      saveCachedOrder(cleanDoc, parsed);
+      return parsed;
     } catch (err) {
       lastError = err as Error;
     }
   }
 
+  const isFailedToFetch = lastError?.message?.includes('Failed to fetch') || lastError?.name === 'TypeError';
+  if (isFailedToFetch) {
+    throw new Error(
+      `No se pudo conectar con el servidor Railway (Failed to fetch). ` +
+      `Causa: Bloqueo de CORS en la API o la Zebra no tiene salida a internet.`
+    );
+  }
+
   throw lastError || new Error(`No se pudo obtener el pedido #${cleanDoc}`);
+}
+
+export interface ConfirmarItemPayload {
+  codigo: string;
+  cantidad: number;
+}
+
+/**
+ * Envía la confirmación de cantidades leídas de cada SKU del pedido a la API:
+ * https://api-jml-production.up.railway.app/api/confirma/:documento/:sucursal
+ * Cuerpo JSON: [{ "codigo": "A1", "cantidad": 2 }, ...]
+ */
+export async function confirmarPedido(
+  documento: string | number,
+  itemsPayload: ConfirmarItemPayload[],
+  sucursal: string = '002'
+): Promise<{ exito: boolean; mensaje: string; data?: any }> {
+  const cleanDoc = String(documento).trim().replace(/\D/g, '');
+  if (!cleanDoc) {
+    throw new Error('No hay un número de pedido válido para confirmar.');
+  }
+
+  let token: string;
+  try {
+    token = await authenticateApi();
+  } catch (authErr) {
+    console.warn('API Auth failed on confirma:', authErr);
+    throw new Error('Error al autenticar con el servidor antes de confirmar el pedido.');
+  }
+
+  const endpoints = [
+    `/api/remote/confirma/${cleanDoc}/${sucursal}`,
+    `https://api-jml-production.up.railway.app/api/confirma/${cleanDoc}/${sucursal}`,
+  ];
+
+  let lastError: Error | null = null;
+  const bodyJson = JSON.stringify(itemsPayload);
+
+  for (const endpoint of endpoints) {
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: bodyJson,
+      });
+
+      if (response.status === 401) {
+        const renewedToken = await authenticateApi(true);
+        const retryRes = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${renewedToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: bodyJson,
+        });
+        if (!retryRes.ok) {
+          const errText = await retryRes.text().catch(() => '');
+          throw new Error(`Error HTTP ${retryRes.status} al confirmar pedido ${errText}`);
+        }
+        const retryData = await retryRes.json().catch(() => ({}));
+        return {
+          exito: true,
+          mensaje: retryData?.data?.mensaje || retryData?.message || retryData?.mensaje || 'Pedido confirmado exitosamente en el servidor.',
+          data: retryData,
+        };
+      }
+
+      if (!response.ok) {
+        const errText = await response.text().catch(() => '');
+        throw new Error(`Error HTTP ${response.status} al confirmar pedido ${errText}`);
+      }
+
+      const resData = await response.json().catch(() => ({}));
+      return {
+        exito: true,
+        mensaje: resData?.data?.mensaje || resData?.message || resData?.mensaje || `Pedido #${cleanDoc} confirmado correctamente en sucursal ${sucursal}.`,
+        data: resData,
+      };
+    } catch (err) {
+      lastError = err as Error;
+    }
+  }
+
+  throw lastError || new Error(`No se pudo enviar la confirmación del pedido #${cleanDoc}`);
 }
 
 function parsePedidoResponse(documento: string, apiRes: PedidoApiResponse): OrderDoc {
@@ -255,10 +398,10 @@ function parsePedidoResponse(documento: string, apiRes: PedidoApiResponse): Orde
     const cleanUnit = (row.unidad || '').trim();
     const cleanDesc = cleanUnit ? `${baseDesc} (${cleanUnit})` : baseDesc;
 
-    // - Cantidad a validar: tag 'salcandesp'
-    const qty = row.salcandesp !== undefined && row.salcandesp !== null
-      ? Number(row.salcandesp)
-      : (row.cantidad !== undefined && row.cantidad !== null ? Number(row.cantidad) : 0);
+    // - Cantidad a validar: tag 'salcandesp' (o 'cantidad' si salcandesp viene en 0)
+    const rawSalcan = row.salcandesp !== undefined && row.salcandesp !== null ? Number(row.salcandesp) : 0;
+    const rawCant = row.cantidad !== undefined && row.cantidad !== null ? Number(row.cantidad) : 0;
+    const qty = rawSalcan > 0 ? rawSalcan : (rawCant > 0 ? rawCant : 1);
 
     totalQty += qty;
 
@@ -274,7 +417,7 @@ function parsePedidoResponse(documento: string, apiRes: PedidoApiResponse): Orde
       location,
       expectedQty: qty,
       countedQty: 0,
-      symbology: cleanBarcode.length >= 12 ? 'EAN-128' : 'Code 128',
+      symbology: 'EAN-13',
       status: qty === 0 ? 'ok' : 'pending',
       barcode: cleanBarcode,
       notes: `Línea ${row.ordendet || index + 1} • Sucursal ${row.codigosuc || '002'}${row.cantidad !== undefined ? ` • Cant. original: ${row.cantidad}` : ''}`,
