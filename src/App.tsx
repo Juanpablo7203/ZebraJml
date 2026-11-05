@@ -22,23 +22,76 @@ import { OrderSelectorModal } from './components/modals/OrderSelectorModal';
 import { NotificationsDrawer } from './components/modals/NotificationsDrawer';
 import { OperatorModal } from './components/modals/OperatorModal';
 import { LoadDocumentModal } from './components/modals/LoadDocumentModal';
+import { SkipItemAuthModal } from './components/modals/SkipItemAuthModal';
 import { OfflineIndicator } from './components/pwa/OfflineIndicator';
 import { OrderDoc, OrderItem, ScanLog, ScannerSettings } from './types';
 import { INITIAL_ORDERS, INITIAL_SCAN_LOGS, DEFAULT_SETTINGS } from './data/mockOrders';
 import { playZebraBeep, triggerZebraHaptic } from './utils/audioFeedback';
-import { fetchPedido } from './services/pedidosApi';
+
+const SESSION_STORAGE_KEY = 'docstock_active_session_v1';
+
+interface PersistedSessionState {
+  orders: OrderDoc[];
+  activeOrderId: string;
+  activeSku: string;
+  authorizedSkus: string[];
+  activeTab: NavTab;
+  scanLogs: ScanLog[];
+  settings: ScannerSettings;
+  lastScannedCode: string;
+  lastSyncedDoc: LastSyncedDocInfo | null;
+}
+
+function loadActiveSession(): Partial<PersistedSessionState> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = window.sessionStorage.getItem(SESSION_STORAGE_KEY);
+    if (!raw) return {};
+    return JSON.parse(raw) as Partial<PersistedSessionState>;
+  } catch {
+    return {};
+  }
+}
+
+function saveActiveSession(state: PersistedSessionState): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // Ignore storage quota errors
+  }
+}
 
 export default function App() {
-  const [orders, setOrders] = useState<OrderDoc[]>(INITIAL_ORDERS);
-  const [activeOrderId, setActiveOrderId] = useState<string>('');
-  const [activeSku, setActiveSku] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<NavTab>('consultar');
-  const [scanLogs, setScanLogs] = useState<ScanLog[]>(INITIAL_SCAN_LOGS);
-  const [settings, setSettings] = useState<ScannerSettings>(DEFAULT_SETTINGS);
+  const initialSession = useRef<Partial<PersistedSessionState>>(loadActiveSession()).current;
+
+  const [orders, setOrders] = useState<OrderDoc[]>(
+    () => initialSession.orders ?? INITIAL_ORDERS
+  );
+  const [activeOrderId, setActiveOrderId] = useState<string>(
+    () => initialSession.activeOrderId ?? ''
+  );
+  const [activeSku, setActiveSku] = useState<string>(
+    () => initialSession.activeSku ?? ''
+  );
+  const [authorizedSkus, setAuthorizedSkus] = useState<string[]>(
+    () => initialSession.authorizedSkus ?? []
+  );
+  const [activeTab, setActiveTab] = useState<NavTab>(
+    () => initialSession.activeTab ?? 'consultar'
+  );
+  const [scanLogs, setScanLogs] = useState<ScanLog[]>(
+    () => initialSession.scanLogs ?? INITIAL_SCAN_LOGS
+  );
+  const [settings, setSettings] = useState<ScannerSettings>(
+    () => initialSession.settings ?? DEFAULT_SETTINGS
+  );
   const [isScanning, setIsScanning] = useState<boolean>(false);
-  const [isLoadingInitialOrder, setIsLoadingInitialOrder] = useState<boolean>(true);
-  const [initialError, setInitialError] = useState<string | null>(null);
-  const [lastSyncedDoc, setLastSyncedDoc] = useState<LastSyncedDocInfo | null>(null);
+  const [isLoadingInitialOrder] = useState<boolean>(false);
+  const [initialError] = useState<string | null>(null);
+  const [lastSyncedDoc, setLastSyncedDoc] = useState<LastSyncedDocInfo | null>(
+    () => initialSession.lastSyncedDoc ?? null
+  );
 
   // Modals state
   const [isDialpadOpen, setIsDialpadOpen] = useState(false);
@@ -48,42 +101,38 @@ export default function App() {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isLoadDocOpen, setIsLoadDocOpen] = useState(false);
-
-  // Automatically fetch live Pedido #20 from Railway API on initial mount (no mock fallbacks)
-  useEffect(() => {
-    let isMounted = true;
-    setIsLoadingInitialOrder(true);
-    setInitialError(null);
-    fetchPedido(20)
-      .then((liveOrder) => {
-        if (!isMounted) return;
-        setOrders([liveOrder]);
-        setActiveOrderId(liveOrder.id);
-        if (liveOrder.items.length > 0) {
-          setActiveSku(liveOrder.items[0].sku);
-        }
-      })
-      .catch((err) => {
-        if (!isMounted) return;
-        console.warn('Initial live API load failed:', err);
-        setInitialError(err instanceof Error ? err.message : 'Error al conectar con la API');
-      })
-      .finally(() => {
-        if (isMounted) {
-          setIsLoadingInitialOrder(false);
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  const [skipAuthPrompt, setSkipAuthPrompt] = useState<{
+    blockingItem: OrderItem;
+    targetItem: OrderItem;
+    pendingScanCode?: string;
+    pendingMethod?: ScanLog['method'];
+  } | null>(null);
 
   // Active Order & Item references
   const currentOrder = orders.find((o) => o.id === activeOrderId) || orders[0] || null;
   const currentItem = currentOrder
     ? currentOrder.items.find((i) => i.sku === activeSku) || currentOrder.items[0] || null
     : null;
+
+  // Check if any preceding item before targetSku is still incomplete and not authorized with key
+  const findBlockingPredecessor = useCallback(
+    (order: OrderDoc | null, targetSku: string, authSkus: string[]): OrderItem | null => {
+      if (!order) return null;
+      const targetIdx = order.items.findIndex((i) => i.sku === targetSku);
+      if (targetIdx <= 0) return null;
+
+      for (let i = 0; i < targetIdx; i++) {
+        const prev = order.items[i];
+        const isComplete = prev.countedQty >= prev.expectedQty;
+        const isAuth = authSkus.includes(prev.sku);
+        if (!isComplete && !isAuth) {
+          return prev;
+        }
+      }
+      return null;
+    },
+    []
+  );
 
   // Helper to append a scan log
   const logScanAction = (
@@ -205,8 +254,50 @@ export default function App() {
     type: 'success' | 'error';
   } | null>(null);
 
-  const [lastScannedCode, setLastScannedCode] = useState<string>('');
+  const [lastScannedCode, setLastScannedCode] = useState<string>(
+    () => initialSession.lastScannedCode ?? ''
+  );
   const [unmatchedCode, setUnmatchedCode] = useState<string | null>(null);
+
+  // Persist current working session in sessionStorage so going to background/returning
+  // or mobile tab suspension never loses entered data, while closing the app/tab clears it automatically
+  useEffect(() => {
+    const currentSnapshot: PersistedSessionState = {
+      orders,
+      activeOrderId,
+      activeSku,
+      authorizedSkus,
+      activeTab,
+      scanLogs,
+      settings,
+      lastScannedCode,
+      lastSyncedDoc,
+    };
+    saveActiveSession(currentSnapshot);
+
+    const handleVisibilityOrPageHide = () => {
+      if (document.visibilityState === 'hidden') {
+        saveActiveSession(currentSnapshot);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityOrPageHide);
+    window.addEventListener('pagehide', handleVisibilityOrPageHide);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityOrPageHide);
+      window.removeEventListener('pagehide', handleVisibilityOrPageHide);
+    };
+  }, [
+    orders,
+    activeOrderId,
+    activeSku,
+    authorizedSkus,
+    activeTab,
+    scanLogs,
+    settings,
+    lastScannedCode,
+    lastSyncedDoc,
+  ]);
 
   // Bulletproof functional state increment with strict document limits
   // "no se debe permitir ingresar más cantidad de las que tiene el documento"
@@ -215,13 +306,13 @@ export default function App() {
       const activeOrder = orders.find((o) => o.id === activeOrderId);
       if (!activeOrder) return;
 
-      const targetItem = activeOrder.items.find(
+      const targetIdx = activeOrder.items.findIndex(
         (i) =>
           cleanBarcodeString(i.sku).toLowerCase() === cleanBarcodeString(targetSku).toLowerCase() ||
           cleanBarcodeString(i.barcode).toLowerCase() === cleanBarcodeString(targetSku).toLowerCase()
       );
-
-      if (!targetItem) return;
+      if (targetIdx === -1) return;
+      const targetItem = activeOrder.items[targetIdx];
 
       if (delta > 0 && targetItem.countedQty >= targetItem.expectedQty) {
         playZebraBeep('error', settings.bipEnabled, settings.bipVolume, settings.bipFrequency);
@@ -232,6 +323,9 @@ export default function App() {
         });
         return;
       }
+
+      const nextItemCount = Math.max(0, Math.min(targetItem.expectedQty, targetItem.countedQty + delta));
+      const justCompleted = nextItemCount === targetItem.expectedQty && delta > 0;
 
       setOrders((prevOrders) =>
         prevOrders.map((order) => {
@@ -291,8 +385,43 @@ export default function App() {
           };
         })
       );
+
+      // If this item just finished all its expected units, automatically advance to the next incomplete item in sequence
+      if (justCompleted) {
+        const nextInOrder = activeOrder.items
+          .slice(targetIdx + 1)
+          .find((it) => it.countedQty < it.expectedQty);
+        if (nextInOrder) {
+          setActiveSku(nextInOrder.sku);
+        }
+      }
     },
     [orders, activeOrderId, settings]
+  );
+
+  // Select an item from the checklist respecting sequential validation order
+  const handleSelectItemInSequence = useCallback(
+    (targetSku: string) => {
+      if (!currentOrder) return;
+      if (targetSku === activeSku) return;
+
+      const targetItem = currentOrder.items.find((i) => i.sku === targetSku);
+      if (!targetItem) return;
+
+      const blocking = findBlockingPredecessor(currentOrder, targetSku, authorizedSkus);
+      if (blocking) {
+        playZebraBeep('error', settings.bipEnabled, settings.bipVolume, settings.bipFrequency);
+        triggerZebraHaptic('error', settings.hapticEnabled);
+        setSkipAuthPrompt({
+          blockingItem: blocking,
+          targetItem,
+        });
+        return;
+      }
+
+      setActiveSku(targetSku);
+    },
+    [currentOrder, activeSku, authorizedSkus, findBlockingPredecessor, settings]
   );
 
   // Dialpad manual entry save (conservando la opción de digitar manualmente)
@@ -319,7 +448,8 @@ export default function App() {
       !isDamagedCodeOpen &&
       !isCameraOpen &&
       !isLoadDocOpen &&
-      !isOrderSelectorOpen
+      !isOrderSelectorOpen &&
+      !skipAuthPrompt
     ) {
       const activeEl = document.activeElement as HTMLElement | null;
       const isUserTypingInManualBox =
@@ -338,10 +468,11 @@ export default function App() {
     isCameraOpen,
     isLoadDocOpen,
     isOrderSelectorOpen,
+    skipAuthPrompt,
   ]);
 
   // Barcode / SKU scan decoder handler
-  // Validates strictly that the scanned barcode matches the item and increments by +1
+  // Validates strictly that the scanned barcode matches the item, enforces sequential order, and increments by +1
   const handleBarcodeDecoded = useCallback(
     (scannedCode: string, method: ScanLog['method'] = 'hardware_trigger') => {
       const cleaned = cleanBarcodeString(scannedCode);
@@ -360,6 +491,25 @@ export default function App() {
 
       if (target) {
         setUnmatchedCode(null);
+
+        // Enforce sequential order: check if an earlier item is still incomplete and not authorized
+        const blocking = findBlockingPredecessor(currentOrder, target.sku, authorizedSkus);
+        if (blocking) {
+          playZebraBeep('error', settings.bipEnabled, settings.bipVolume, settings.bipFrequency);
+          triggerZebraHaptic('error', settings.hapticEnabled);
+          setScanFeedbackNotice({
+            text: `Validación en orden: primero completa ${blocking.sku} (${blocking.countedQty}/${blocking.expectedQty}) o ingresa la clave de autorización.`,
+            type: 'error',
+          });
+          setSkipAuthPrompt({
+            blockingItem: blocking,
+            targetItem: target,
+            pendingScanCode: cleaned,
+            pendingMethod: method,
+          });
+          return;
+        }
+
         setActiveSku(target.sku);
 
         // Strict limit check: do not increment if already at document expected count
@@ -395,7 +545,15 @@ export default function App() {
         setScanFeedbackNotice((prev) => (prev?.text.includes(cleaned) ? null : prev));
       }, 5000);
     },
-    [currentOrder, currentItem, findMatchingOrderItem, handleIncrementItem, settings]
+    [
+      currentOrder,
+      currentItem,
+      authorizedSkus,
+      findMatchingOrderItem,
+      findBlockingPredecessor,
+      handleIncrementItem,
+      settings,
+    ]
   );
 
   // Hardware barcode wedge listener & physical trigger listener (Zebra TC27)
@@ -426,7 +584,7 @@ export default function App() {
       if (targetElement && targetElement.getAttribute('data-hw-scanner') === 'true') {
         return;
       }
-      if (isDialpadOpen || isDamagedCodeOpen || isCameraOpen || isLoadDocOpen) {
+      if (isDialpadOpen || isDamagedCodeOpen || isCameraOpen || isLoadDocOpen || skipAuthPrompt) {
         return;
       }
 
@@ -488,7 +646,7 @@ export default function App() {
       const isRegularInput =
         ['INPUT', 'TEXTAREA'].includes(targetElement?.tagName) &&
         !targetElement?.getAttribute('data-hw-scanner');
-      if (isRegularInput || isDialpadOpen || isDamagedCodeOpen || isCameraOpen || isLoadDocOpen) {
+      if (isRegularInput || isDialpadOpen || isDamagedCodeOpen || isCameraOpen || isLoadDocOpen || skipAuthPrompt) {
         return;
       }
       const pasted = e.clipboardData?.getData('text')?.trim();
@@ -505,7 +663,7 @@ export default function App() {
       window.removeEventListener('paste', handlePaste);
       if (scanTimerRef.current) clearTimeout(scanTimerRef.current);
     };
-  }, [handleBarcodeDecoded, isDialpadOpen, isDamagedCodeOpen, isCameraOpen, isLoadDocOpen]);
+  }, [handleBarcodeDecoded, isDialpadOpen, isDamagedCodeOpen, isCameraOpen, isLoadDocOpen, skipAuthPrompt]);
 
   // Toggle Bip & Haptic directly
   const handleToggleBipAndHaptic = () => {
@@ -526,6 +684,16 @@ export default function App() {
     const code = barcode || sku;
     handleBarcodeDecoded(code, 'camera');
   };
+
+  // Next item in sequence after currentItem (for "Siguiente (Clave)" button on HudScannedCard)
+  const currentItemIndex =
+    currentOrder && currentItem
+      ? currentOrder.items.findIndex((i) => i.sku === currentItem.sku)
+      : -1;
+  const nextItemInOrder =
+    currentOrder && currentItemIndex >= 0 && currentItemIndex + 1 < currentOrder.items.length
+      ? currentOrder.items[currentItemIndex + 1]
+      : null;
 
   return (
     <div
@@ -642,19 +810,27 @@ export default function App() {
                 batteryLevel={94}
                 onManualBarcodeSubmit={(code) => handleBarcodeDecoded(code, 'manual')}
                 lastScannedCode={lastScannedCode}
+                documentNumber={currentOrder.id.replace(/\D/g, '') || currentOrder.id}
               />
 
               {/* HUD Real-Time Scanned Item Card */}
               <HudScannedCard
                 item={currentItem}
                 onOpenDialpad={() => setIsDialpadOpen(true)}
+                hasNextItem={Boolean(nextItemInOrder)}
+                onSkipToNextWithAuth={() => {
+                  if (nextItemInOrder) {
+                    handleSelectItemInSequence(nextItemInOrder.sku);
+                  }
+                }}
               />
 
               {/* Verification List & Handheld Hardware Panel */}
               <ItemsChecklist
                 items={currentOrder.items}
                 activeSku={activeSku}
-                onSelectItem={(sku) => setActiveSku(sku)}
+                authorizedSkus={authorizedSkus}
+                onSelectItem={handleSelectItemInSequence}
               />
 
               {/* Handheld Zebra/Honeywell & Fallback Utility Buttons */}
@@ -667,6 +843,7 @@ export default function App() {
                   setOrders((prev) => prev.filter((o) => o.id !== canceledId));
                   setActiveOrderId('');
                   setActiveSku('');
+                  setAuthorizedSkus([]);
                   setLastScannedCode('');
                   setUnmatchedCode(null);
                   setIsLoadDocOpen(true);
@@ -760,6 +937,7 @@ export default function App() {
               setOrders((prev) => prev.filter((o) => o.id !== syncedInfo.orderId));
               setActiveOrderId('');
               setActiveSku('');
+              setAuthorizedSkus([]);
               setLastScannedCode('');
               setUnmatchedCode(null);
               setActiveTab('consultar');
@@ -805,7 +983,7 @@ export default function App() {
             items={currentOrder.items}
             isOpen={isDamagedCodeOpen}
             onClose={() => setIsDamagedCodeOpen(false)}
-            onSelectItem={(sku) => setActiveSku(sku)}
+            onSelectItem={handleSelectItemInSequence}
           />
 
           <CameraScannerModal
@@ -817,6 +995,47 @@ export default function App() {
         </>
       )}
 
+      <SkipItemAuthModal
+        isOpen={Boolean(skipAuthPrompt)}
+        blockingItem={skipAuthPrompt?.blockingItem || null}
+        targetItem={skipAuthPrompt?.targetItem || null}
+        pendingScanCode={skipAuthPrompt?.pendingScanCode || null}
+        onClose={() => setSkipAuthPrompt(null)}
+        onAuthorized={() => {
+          if (!skipAuthPrompt || !currentOrder) {
+            setSkipAuthPrompt(null);
+            return;
+          }
+          const { targetItem, pendingScanCode, pendingMethod } = skipAuthPrompt;
+          const targetIdx = currentOrder.items.findIndex((i) => i.sku === targetItem.sku);
+
+          // Authorize all incomplete items prior to targetItem so sequential flow continues at targetItem
+          const newlyAuthorized = currentOrder.items
+            .slice(0, Math.max(0, targetIdx))
+            .filter((i) => i.countedQty < i.expectedQty)
+            .map((i) => i.sku);
+
+          setAuthorizedSkus((prev) => Array.from(new Set([...prev, ...newlyAuthorized])));
+          setActiveSku(targetItem.sku);
+          setSkipAuthPrompt(null);
+
+          if (pendingScanCode && targetItem.countedQty < targetItem.expectedQty) {
+            handleIncrementItem(targetItem.sku, 1, pendingMethod || 'hardware_trigger');
+            setScanFeedbackNotice({
+              text: `Clave autorizada. Lectura aplicada a ${targetItem.sku} (+1 ud).`,
+              type: 'success',
+            });
+          } else {
+            playZebraBeep('success', settings.bipEnabled, settings.bipVolume, settings.bipFrequency);
+            triggerZebraHaptic('success', settings.hapticEnabled);
+            setScanFeedbackNotice({
+              text: `Clave autorizada. Continuando validación con ${targetItem.sku}.`,
+              type: 'success',
+            });
+          }
+        }}
+      />
+
       <OrderSelectorModal
         orders={orders}
         activeOrderId={activeOrderId}
@@ -825,6 +1044,7 @@ export default function App() {
         onOpenLoadDocument={() => setIsLoadDocOpen(true)}
         onSelectOrder={(id) => {
           setActiveOrderId(id);
+          setAuthorizedSkus([]);
           const sel = orders.find((o) => o.id === id);
           if (sel && sel.items.length > 0) {
             setActiveSku(sel.items[0].sku);
@@ -840,6 +1060,7 @@ export default function App() {
         onOrderLoaded={(newOrder) => {
           setOrders((prev) => [newOrder, ...prev.filter((o) => o.id !== newOrder.id)]);
           setActiveOrderId(newOrder.id);
+          setAuthorizedSkus([]);
           if (newOrder.items.length > 0) {
             setActiveSku(newOrder.items[0].sku);
           }

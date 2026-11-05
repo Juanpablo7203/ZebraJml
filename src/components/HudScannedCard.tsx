@@ -4,12 +4,16 @@ import { OrderItem } from '../types';
 interface HudScannedCardProps {
   item: OrderItem;
   onOpenDialpad: () => void;
+  hasNextItem?: boolean;
+  onSkipToNextWithAuth?: () => void;
   lastScannedTime?: string;
 }
 
 export const HudScannedCard: React.FC<HudScannedCardProps> = ({
   item,
   onOpenDialpad,
+  hasNextItem = false,
+  onSkipToNextWithAuth,
 }) => {
   const isComplete = item.countedQty >= item.expectedQty;
   const remaining = Math.max(0, item.expectedQty - item.countedQty);
@@ -41,7 +45,7 @@ export const HudScannedCard: React.FC<HudScannedCardProps> = ({
               </span>
             </span>
             <span className="font-label-md text-label-md text-on-surface font-semibold">
-              {isComplete ? '¡Ítem Completado!' : 'Ítem Seleccionado'}
+              {isComplete ? '¡Ítem Completado!' : 'Ítem en Curso'}
             </span>
           </div>
 
@@ -118,8 +122,8 @@ export const HudScannedCard: React.FC<HudScannedCardProps> = ({
           </div>
         </div>
 
-        {/* Action Bar: Manual Keypad & Status (quantities only increment by scanning a valid barcode or manual keypad) */}
-        <div className="flex items-center gap-space-xs pt-space-xs">
+        {/* Action Bar: Manual Keypad & Skip with Key */}
+        <div className="flex items-center gap-space-xs pt-space-xs flex-wrap sm:flex-nowrap">
           {/* Manual Digitize Button */}
           <button
             type="button"
@@ -129,8 +133,21 @@ export const HudScannedCard: React.FC<HudScannedCardProps> = ({
             title="Digitar manualmente la cantidad del documento"
           >
             <span className="material-symbols-outlined text-[18px]">dialpad</span>
-            <span>Digitar Cantidad Manual</span>
+            <span>Digitar Cantidad</span>
           </button>
+
+          {/* Skip to Next Item with Key button (shown when incomplete and there is a next item) */}
+          {!isComplete && hasNextItem && onSkipToNextWithAuth && (
+            <button
+              type="button"
+              onClick={onSkipToNextWithAuth}
+              className="py-2.5 px-3 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 font-label-sm text-xs font-bold active:scale-95 transition-all flex items-center justify-center gap-1 shadow-xs cursor-pointer min-h-[44px] border border-amber-300 shrink-0"
+              title="Continuar con el siguiente ítem ingresando clave de autorización"
+            >
+              <span className="material-symbols-outlined text-[16px]">key</span>
+              <span>Siguiente (Clave)</span>
+            </button>
+          )}
 
           {/* Status Badge */}
           <div

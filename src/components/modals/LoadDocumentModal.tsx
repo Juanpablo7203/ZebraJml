@@ -72,7 +72,7 @@ export const LoadDocumentModal: React.FC<LoadDocumentModalProps> = ({
                 Consultar Pedido
               </h2>
               <p className="text-xs text-on-surface-variant">
-                Extracción directa desde API Servidor (/api/pedido/:doc/002)
+                Extracción directa desde API Servidor (/api/pedido/:doc/001)
               </p>
             </div>
           </div>

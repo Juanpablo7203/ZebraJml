@@ -73,43 +73,6 @@ export const Header: React.FC<HeaderProps> = ({
             </span>
             <span>{batteryLevel}%</span>
           </div>
-
-          <button
-            type="button"
-            onClick={onOpenNotifications}
-            aria-label="Notificaciones"
-            className="w-11 h-11 flex items-center justify-center rounded-xl bg-surface-container-low text-on-surface-variant hover:text-primary hover:bg-surface-container active:scale-95 transition-all relative"
-            title="Ver notificaciones y alertas del sistema"
-          >
-            <span className="material-symbols-outlined text-[20px]">notifications</span>
-            <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-secondary"></span>
-          </button>
-
-          <button
-            type="button"
-            onClick={onOpenProfile}
-            aria-label="Perfil del operador"
-            className="flex items-center justify-center p-0.5 rounded-full bg-surface-container hover:ring-2 hover:ring-primary/20 active:scale-95 transition-all"
-            title="Javier Escobar - Operador Zebra TC27"
-          >
-            <img
-              alt="Profile"
-              className="w-8 h-8 rounded-full object-cover"
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuAH4g0v_YqXuqRvJDBzzTGxrYq9TmrLDCDT6WYGDxQ7MTuyeiDDXJMMruSp6prt2FS7uqWUF3-ZIwZrLz1Eq-_Q0et2iOhOgK62JYCS5GKiZ1L60_Sa3W-AnpzLVxoVtVaqLP3CpGLfnUbBs1uOueyKRKOj6fDoVhql3fl9Z1iQz2IaqkXsPeWXeEGyOJ65C3_Vywmnes1BB-nHvtRaJNeURrDNrLOOMsd8l8e0YxjZIxXmC7EN6uo"
-              onError={(e) => {
-                const target = e.currentTarget;
-                target.style.display = 'none';
-                const parent = target.parentElement;
-                if (parent && !parent.querySelector('.avatar-fallback')) {
-                  const fallback = document.createElement('div');
-                  fallback.className =
-                    'avatar-fallback w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-xs font-bold';
-                  fallback.textContent = 'JE';
-                  parent.appendChild(fallback);
-                }
-              }}
-            />
-          </button>
         </div>
       </div>
     </header>

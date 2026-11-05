@@ -118,8 +118,8 @@ export async function authenticateApi(forceRefresh = false): Promise<string> {
 
   const passphrase = getStoredPassphrase();
   const endpoints = [
-    `/api/remote/logins?passphrase=${encodeURIComponent(passphrase)}`,
     `https://api-jml-production.up.railway.app/api/logins?passphrase=${encodeURIComponent(passphrase)}`,
+    `/api/remote/logins?passphrase=${encodeURIComponent(passphrase)}`,
   ];
 
   let lastError: Error | null = null;
@@ -135,6 +135,11 @@ export async function authenticateApi(forceRefresh = false): Promise<string> {
 
       if (!response.ok) {
         throw new Error(`Error HTTP ${response.status} al autenticar`);
+      }
+
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('text/html')) {
+        throw new Error('Respuesta HTML inesperada en autenticación');
       }
 
       const data = await response.json();
@@ -173,7 +178,7 @@ export async function authenticateApi(forceRefresh = false): Promise<string> {
 /**
  * Local offline cache key for pedidos
  */
-const OFFLINE_CACHE_KEY = 'docstock_offline_pedidos_v1';
+const OFFLINE_CACHE_KEY = 'docstock_offline_pedidos_v2';
 
 export function getCachedOrder(documento: string | number): OrderDoc | null {
   if (typeof window === 'undefined') return null;
@@ -205,8 +210,8 @@ export function saveCachedOrder(documento: string | number, order: OrderDoc): vo
 
 /**
  * Fetches pedido details by document number.
- * Endpoint: /api/pedido/:documento/002
- * Where 002 is the mandatory fixed branch indicator.
+ * Endpoint: /api/pedido/:documento/001
+ * Where 001 is the mandatory fixed branch indicator.
  */
 export async function fetchPedido(documento: string | number): Promise<OrderDoc> {
   // Ensure document number is valid numeric string or integer
@@ -227,8 +232,8 @@ export async function fetchPedido(documento: string | number): Promise<OrderDoc>
   }
 
   const endpoints = [
-    `/api/remote/pedido/${cleanDoc}/002`,
-    `https://api-jml-production.up.railway.app/api/pedido/${cleanDoc}/002`,
+    `https://api-jml-production.up.railway.app/api/pedido/${cleanDoc}/001`,
+    `/api/remote/pedido/${cleanDoc}/001`,
   ];
 
   let lastError: Error | null = null;
@@ -266,6 +271,11 @@ export async function fetchPedido(documento: string | number): Promise<OrderDoc>
         throw new Error(`Error HTTP ${response.status} al consultar pedido`);
       }
 
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('text/html')) {
+        throw new Error('Respuesta HTML inesperada al consultar pedido');
+      }
+
       const data: PedidoApiResponse = await response.json();
       const parsed = parsePedidoResponse(cleanDoc, data);
       saveCachedOrder(cleanDoc, parsed);
@@ -299,7 +309,7 @@ export interface ConfirmarItemPayload {
 export async function confirmarPedido(
   documento: string | number,
   itemsPayload: ConfirmarItemPayload[],
-  sucursal: string = '002'
+  sucursal: string = '001'
 ): Promise<{ exito: boolean; mensaje: string; data?: any }> {
   const cleanDoc = String(documento).trim().replace(/\D/g, '');
   if (!cleanDoc) {
@@ -315,12 +325,50 @@ export async function confirmarPedido(
   }
 
   const endpoints = [
-    `/api/remote/confirma/${cleanDoc}/${sucursal}`,
     `https://api-jml-production.up.railway.app/api/confirma/${cleanDoc}/${sucursal}`,
+    `/api/remote/confirma/${cleanDoc}/${sucursal}`,
   ];
 
   let lastError: Error | null = null;
   const bodyJson = JSON.stringify(itemsPayload);
+
+  const parseAndValidateConfirmaResponse = async (res: Response) => {
+    const contentType = res.headers.get('content-type') || '';
+    if (contentType.includes('text/html')) {
+      throw new Error('El endpoint devolvió HTML en lugar de una respuesta JSON de la API.');
+    }
+
+    const rawText = await res.text();
+    if (!rawText || rawText.trim().startsWith('<')) {
+      throw new Error('Respuesta inválida del servidor al confirmar el pedido.');
+    }
+
+    let resData: any;
+    try {
+      resData = JSON.parse(rawText);
+    } catch {
+      throw new Error(`Respuesta no es JSON válido: ${rawText.slice(0, 100)}`);
+    }
+
+    if (resData?.exito === false || resData?.data?.exito === false) {
+      throw new Error(
+        resData?.data?.mensaje ||
+          resData?.mensaje ||
+          resData?.message ||
+          'El servidor rechazó la confirmación del pedido.'
+      );
+    }
+
+    return {
+      exito: true,
+      mensaje:
+        resData?.data?.mensaje ||
+        resData?.message ||
+        resData?.mensaje ||
+        `Pedido #${cleanDoc} confirmado correctamente en sucursal ${sucursal}.`,
+      data: resData,
+    };
+  };
 
   for (const endpoint of endpoints) {
     try {
@@ -347,12 +395,7 @@ export async function confirmarPedido(
           const errText = await retryRes.text().catch(() => '');
           throw new Error(`Error HTTP ${retryRes.status} al confirmar pedido ${errText}`);
         }
-        const retryData = await retryRes.json().catch(() => ({}));
-        return {
-          exito: true,
-          mensaje: retryData?.data?.mensaje || retryData?.message || retryData?.mensaje || 'Pedido confirmado exitosamente en el servidor.',
-          data: retryData,
-        };
+        return await parseAndValidateConfirmaResponse(retryRes);
       }
 
       if (!response.ok) {
@@ -360,18 +403,96 @@ export async function confirmarPedido(
         throw new Error(`Error HTTP ${response.status} al confirmar pedido ${errText}`);
       }
 
-      const resData = await response.json().catch(() => ({}));
-      return {
-        exito: true,
-        mensaje: resData?.data?.mensaje || resData?.message || resData?.mensaje || `Pedido #${cleanDoc} confirmado correctamente en sucursal ${sucursal}.`,
-        data: resData,
-      };
+      return await parseAndValidateConfirmaResponse(response);
     } catch (err) {
       lastError = err as Error;
     }
   }
 
   throw lastError || new Error(`No se pudo enviar la confirmación del pedido #${cleanDoc}`);
+}
+
+/**
+ * Obtiene la clave de autorización para saltar/continuar con el siguiente ítem
+ * sin haber completado la validación del código en curso.
+ * Endpoint: https://api-jml-production.up.railway.app/api/loadpassalto
+ */
+export async function fetchPassAlto(): Promise<string> {
+  let token: string;
+  try {
+    token = await authenticateApi();
+  } catch (authErr) {
+    console.warn('API Auth failed on loadpassalto:', authErr);
+    throw new Error('Error al autenticar con el servidor para validar la clave.');
+  }
+
+  const endpoints = [
+    `https://api-jml-production.up.railway.app/api/loadpassalto`,
+    `/api/remote/loadpassalto`,
+  ];
+
+  let lastError: Error | null = null;
+
+  const extractPassFromResponse = (resData: any): string => {
+    const val =
+      resData?.data?.rows?.[0]?.valortext ??
+      resData?.data?.rows?.[0]?.valor ??
+      resData?.data?.rows?.[0]?.clave ??
+      resData?.data?.valortext ??
+      resData?.data?.clave ??
+      resData?.rows?.[0]?.valortext ??
+      resData?.valortext ??
+      resData?.clave;
+
+    if (val !== undefined && val !== null && String(val).trim() !== '') {
+      return String(val).trim();
+    }
+    throw new Error(resData?.data?.mensaje || 'No se encontró la clave de autorización en el servidor.');
+  };
+
+  for (const endpoint of endpoints) {
+    try {
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.status === 401) {
+        const renewedToken = await authenticateApi(true);
+        const retryRes = await fetch(endpoint, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${renewedToken}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        if (!retryRes.ok) {
+          throw new Error(`Error HTTP ${retryRes.status} al consultar clave de autorización`);
+        }
+        const retryData = await retryRes.json();
+        return extractPassFromResponse(retryData);
+      }
+
+      if (!response.ok) {
+        throw new Error(`Error HTTP ${response.status} al consultar clave de autorización`);
+      }
+
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('text/html')) {
+        throw new Error('Respuesta HTML inesperada al consultar clave');
+      }
+
+      const resData = await response.json();
+      return extractPassFromResponse(resData);
+    } catch (err) {
+      lastError = err as Error;
+    }
+  }
+
+  throw lastError || new Error('No se pudo conectar al servidor para verificar la clave de autorización');
 }
 
 function parsePedidoResponse(documento: string, apiRes: PedidoApiResponse): OrderDoc {
@@ -420,7 +541,7 @@ function parsePedidoResponse(documento: string, apiRes: PedidoApiResponse): Orde
       symbology: 'EAN-13',
       status: qty === 0 ? 'ok' : 'pending',
       barcode: cleanBarcode,
-      notes: `Línea ${row.ordendet || index + 1} • Sucursal ${row.codigosuc || '002'}${row.cantidad !== undefined ? ` • Cant. original: ${row.cantidad}` : ''}`,
+      notes: `Línea ${row.ordendet || index + 1} • Sucursal ${row.codigosuc || '001'}${row.cantidad !== undefined ? ` • Cant. original: ${row.cantidad}` : ''}`,
     };
   });
 
@@ -430,7 +551,7 @@ function parsePedidoResponse(documento: string, apiRes: PedidoApiResponse): Orde
 
   return {
     id: `PED-${documento}`,
-    name: `Pedido #${documento} (Suc. 002)`,
+    name: `Pedido #${documento} (Suc. 001)`,
     type: 'Auditoría de Despacho',
     warehouse: 'Bodega Central - Andén 1',
     bay: 'Bahía 01',

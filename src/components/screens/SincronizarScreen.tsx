@@ -40,7 +40,7 @@ export const SincronizarScreen: React.FC<SincronizarScreenProps> = ({
     return currentOrder.id.replace(/\D/g, '') || currentOrder.id;
   }, [currentOrder]);
 
-  const sucursal = '002';
+  const sucursal = '001';
 
   // Build the exact JSON body required: only send codes that have a counted quantity (> 0)
   const payload: ConfirmarItemPayload[] = useMemo(() => {

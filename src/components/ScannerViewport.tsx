@@ -6,14 +6,14 @@ interface ScannerViewportProps {
   batteryLevel?: number;
   onManualBarcodeSubmit?: (code: string) => void;
   lastScannedCode?: string;
+  documentNumber?: string;
 }
 
 export const ScannerViewport: React.FC<ScannerViewportProps> = ({
   isScanning,
   onOpenLiveCamera,
-  batteryLevel = 94,
   onManualBarcodeSubmit,
-  lastScannedCode,
+  documentNumber = '',
 }) => {
   const [manualCode, setManualCode] = useState('');
 
@@ -62,51 +62,25 @@ export const ScannerViewport: React.FC<ScannerViewportProps> = ({
           </div>
         </div>
 
-        {/* Viewport Dark Rugged Target Area */}
+        {/* Compact Dark Bar for Active Order Number */}
         <div
-          className={`bg-inverse-surface rounded-lg p-space-sm flex flex-col items-center justify-center relative overflow-hidden text-center transition-all duration-200 min-h-[100px] select-none ${
-            isScanning ? 'ring-2 ring-red-500/80 shadow-[inset_0_0_24px_rgba(239,68,68,0.4)]' : ''
+          className={`bg-inverse-surface rounded-lg px-3 py-1.5 flex items-center justify-center relative overflow-hidden text-center transition-all duration-200 select-none ${
+            isScanning ? 'ring-2 ring-red-500/80 shadow-[inset_0_0_16px_rgba(239,68,68,0.4)]' : ''
           }`}
         >
-          {/* Ambient Scan Glow */}
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-tertiary-fixed/10 to-transparent pointer-events-none"></div>
-
-          {/* Real-time Laser Line Animation when scanning */}
           {isScanning && (
-            <div className="absolute inset-0 pointer-events-none flex flex-col justify-center items-center">
-              <div className="w-full h-0.5 bg-red-500 shadow-[0_0_12px_#ef4444,0_0_2px_#ffffff] animate-laser"></div>
-              <div className="absolute w-12 h-12 border border-red-500/60 rounded-full flex items-center justify-center">
-                <div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_#ef4444]"></div>
-              </div>
+            <div className="absolute inset-0 pointer-events-none flex items-center">
+              <div className="w-full h-0.5 bg-red-500 shadow-[0_0_8px_#ef4444] animate-laser"></div>
             </div>
           )}
 
-          {/* Aiming Beam Label */}
-          <div className="flex items-center justify-center gap-2 mb-1 z-10">
-            <span className="h-0.5 w-14 bg-gradient-to-r from-transparent to-tertiary-fixed"></span>
-            <span className="font-data-mono text-label-sm text-tertiary-fixed-dim font-bold tracking-widest uppercase">
-              {isScanning ? 'DECODIFICANDO CÓDIGO...' : 'HAZ LÁSER ACTIVO'}
+          <div className="flex items-center justify-center gap-1.5 z-10 text-xs font-mono">
+            <span className="material-symbols-outlined text-[15px] text-tertiary-fixed-dim">
+              assignment
             </span>
-            <span className="h-0.5 w-14 bg-gradient-to-l from-transparent to-tertiary-fixed"></span>
-          </div>
-
-          <p className="font-body-sm text-body-sm text-inverse-on-surface/90 max-w-xs z-10 text-xs">
-            Apunta al código de barras y presiona el <strong>gatillo físico lateral</strong> de la Zebra TC27.
-          </p>
-
-          <div className="mt-1.5 flex items-center gap-2 z-10 flex-wrap justify-center text-[11px]">
-            {lastScannedCode && (
-              <span className="px-2 py-0.5 rounded bg-tertiary-container text-on-tertiary-container font-mono font-bold flex items-center gap-1 shadow-xs">
-                <span className="material-symbols-outlined text-[13px]">qr_code</span>
-                Último leído: {lastScannedCode}
-              </span>
-            )}
-            <span className="px-2 py-0.5 rounded bg-surface/10 text-inverse-on-surface font-data-mono font-medium">
-              +1 por código válido (EAN-13)
-            </span>
-            <span className="px-2 py-0.5 rounded bg-surface/10 text-inverse-on-surface font-data-mono">
-              TC27: {batteryLevel}%
-            </span>
+            <strong className="text-tertiary-fixed-dim font-bold">
+              Validando pedido Nro {documentNumber}
+            </strong>
           </div>
         </div>
 
